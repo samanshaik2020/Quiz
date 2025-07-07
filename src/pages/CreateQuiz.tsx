@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -8,11 +7,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Plus, Trash2, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import CompletionPageBuilder, { CompletionPageConfig } from "@/components/CompletionPageBuilder";
 
 interface Question {
   id: string;
   questionText: string;
   options: string[];
+}
+
+interface Quiz {
+  id: string;
+  title: string;
+  questions: Question[];
+  completionConfig: CompletionPageConfig;
+  createdAt: Date;
 }
 
 const CreateQuiz = () => {
@@ -21,8 +29,7 @@ const CreateQuiz = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState("");
   const [currentOptions, setCurrentOptions] = useState(["", ""]);
-  const [completionButtonText, setCompletionButtonText] = useState("Continue");
-  const [completionButtonURL, setCompletionButtonURL] = useState("");
+  const [completionConfig, setCompletionConfig] = useState<CompletionPageConfig | null>(null);
   
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -72,16 +79,28 @@ const CreateQuiz = () => {
   };
 
   const createQuiz = () => {
-    if (!quizTitle.trim() || questions.length === 0 || !completionButtonURL.trim()) {
+    if (!quizTitle.trim() || questions.length === 0 || !completionConfig) {
       toast({
         title: "Missing information",
-        description: "Please fill in all required fields.",
+        description: "Please complete all steps including the completion page configuration.",
         variant: "destructive",
       });
       return;
     }
 
-    // Simulate saving quiz
+    const newQuiz: Quiz = {
+      id: `quiz_${Date.now()}`,
+      title: quizTitle,
+      questions,
+      completionConfig,
+      createdAt: new Date()
+    };
+
+    // Store quiz in localStorage for demo purposes
+    const existingQuizzes = JSON.parse(localStorage.getItem("quizzes") || "[]");
+    existingQuizzes.push(newQuiz);
+    localStorage.setItem("quizzes", JSON.stringify(existingQuizzes));
+
     toast({
       title: "Quiz created successfully!",
       description: "Your quiz has been created and is ready to share.",
@@ -108,6 +127,14 @@ const CreateQuiz = () => {
       return;
     }
     setStep(step + 1);
+  };
+
+  const handleCompletionConfigSave = (config: CompletionPageConfig) => {
+    setCompletionConfig(config);
+    toast({
+      title: "Completion page configured!",
+      description: "Your completion page has been configured successfully.",
+    });
   };
 
   return (
@@ -284,54 +311,33 @@ const CreateQuiz = () => {
 
         {/* Step 3: Completion Setup */}
         {step === 3 && (
-          <Card className="max-w-2xl mx-auto">
-            <CardHeader>
-              <CardTitle>Completion Setup</CardTitle>
-              <CardDescription>
-                Configure what happens when users complete your quiz
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="buttonText">Button Text</Label>
-                <Input
-                  id="buttonText"
-                  placeholder="e.g., Get Free Trial, Schedule Demo"
-                  value={completionButtonText}
-                  onChange={(e) => setCompletionButtonText(e.target.value)}
-                  className="mt-2"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="buttonURL">Redirect URL</Label>
-                <Input
-                  id="buttonURL"
-                  type="url"
-                  placeholder="https://example.com/signup"
-                  value={completionButtonURL}
-                  onChange={(e) => setCompletionButtonURL(e.target.value)}
-                  className="mt-2"
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  Users will be redirected here after completing the quiz
-                </p>
-              </div>
-
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h4 className="font-medium text-blue-900 mb-2">Quiz Summary</h4>
-                <div className="text-sm text-blue-700 space-y-1">
-                  <p><strong>Title:</strong> {quizTitle}</p>
-                  <p><strong>Questions:</strong> {questions.length}</p>
-                  <p><strong>Completion Action:</strong> {completionButtonText} → {completionButtonURL}</p>
-                </div>
-              </div>
-
-              <Button onClick={createQuiz} className="w-full bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700">
-                Create Quiz
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            <CompletionPageBuilder
+              onSave={handleCompletionConfigSave}
+              initialConfig={completionConfig}
+            />
+            
+            {completionConfig && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Ready to Create Quiz</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                    <h4 className="font-medium text-blue-900 mb-2">Quiz Summary</h4>
+                    <div className="text-sm text-blue-700 space-y-1">
+                      <p><strong>Title:</strong> {quizTitle}</p>
+                      <p><strong>Questions:</strong> {questions.length}</p>
+                      <p><strong>Completion Action:</strong> {completionConfig.buttonText}</p>
+                    </div>
+                  </div>
+                  <Button onClick={createQuiz} className="w-full bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700">
+                    Create Quiz
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         )}
       </div>
     </div>

@@ -7,28 +7,19 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, ExternalLink, Copy, LogOut, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-// Mock data for demo
-const mockQuizzes = [
-  {
-    id: "quiz_1",
-    title: "Product Feedback Survey",
-    createdAt: new Date("2024-01-15"),
-    questionsCount: 5,
-    completionButtonText: "Get Free Trial",
-    completionButtonURL: "https://example.com/trial"
-  },
-  {
-    id: "quiz_2", 
-    title: "Lead Generation Quiz",
-    createdAt: new Date("2024-01-20"),
-    questionsCount: 3,
-    completionButtonText: "Schedule Demo",
-    completionButtonURL: "https://example.com/demo"
-  }
-];
+interface Quiz {
+  id: string;
+  title: string;
+  createdAt: Date;
+  questionsCount?: number;
+  completionButtonText?: string;
+  completionButtonURL?: string;
+  questions?: any[];
+  completionConfig?: any;
+}
 
 const AdminDashboard = () => {
-  const [quizzes, setQuizzes] = useState(mockQuizzes);
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -37,7 +28,28 @@ const AdminDashboard = () => {
     const token = localStorage.getItem("quizflow_token");
     if (!token) {
       navigate("/admin/login");
+      return;
     }
+
+    // Load quizzes from localStorage
+    const loadQuizzes = () => {
+      try {
+        const storedQuizzes = JSON.parse(localStorage.getItem("quizzes") || "[]");
+        const formattedQuizzes = storedQuizzes.map((quiz: any) => ({
+          ...quiz,
+          createdAt: new Date(quiz.createdAt),
+          questionsCount: quiz.questions?.length || 0,
+          completionButtonText: quiz.completionConfig?.buttonText || "Continue",
+          completionButtonURL: quiz.completionConfig?.buttonURL || ""
+        }));
+        setQuizzes(formattedQuizzes);
+      } catch (error) {
+        console.error("Error loading quizzes:", error);
+        setQuizzes([]);
+      }
+    };
+
+    loadQuizzes();
   }, [navigate]);
 
   const handleLogout = () => {
@@ -113,7 +125,7 @@ const AdminDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {quizzes.reduce((sum, quiz) => sum + quiz.questionsCount, 0)}
+                {quizzes.reduce((sum, quiz) => sum + (quiz.questionsCount || 0), 0)}
               </div>
               <p className="text-xs text-muted-foreground">Across all quizzes</p>
             </CardContent>
@@ -169,7 +181,7 @@ const AdminDashboard = () => {
                   <CardContent>
                     <div className="space-y-3">
                       <div className="text-sm">
-                        <span className="font-medium">Redirect:</span> {quiz.completionButtonText} → {quiz.completionButtonURL}
+                        <span className="font-medium">Redirect:</span> {quiz.completionButtonText} → {quiz.completionButtonURL || 'Not configured'}
                       </div>
                       
                       <div className="flex items-center justify-between pt-2 border-t">
