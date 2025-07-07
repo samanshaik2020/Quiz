@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle, Users, BarChart3 } from "lucide-react";
 
 const Index = () => {
+  console.log("Index page rendering");
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       {/* Header */}
