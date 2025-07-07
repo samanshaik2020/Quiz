@@ -88,8 +88,9 @@ const CreateQuiz = () => {
       return;
     }
 
+    const quizId = `quiz_${Date.now()}`;
     const newQuiz: Quiz = {
-      id: `quiz_${Date.now()}`,
+      id: quizId,
       title: quizTitle,
       questions,
       completionConfig,
@@ -101,9 +102,12 @@ const CreateQuiz = () => {
     existingQuizzes.push(newQuiz);
     localStorage.setItem("quizzes", JSON.stringify(existingQuizzes));
 
+    // Also store the completion page configuration separately for the completion page to access
+    localStorage.setItem(`completion_config_${newQuiz.id}`, JSON.stringify(completionConfig));
+
     toast({
       title: "Quiz created successfully!",
-      description: "Your quiz has been created and is ready to share.",
+      description: `Your quiz has been created. Share this URL: ${window.location.origin}/quiz/${quizId}`,
     });
     
     navigate("/admin/dashboard");
