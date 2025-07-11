@@ -4,8 +4,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, ExternalLink, Copy, LogOut, BarChart3 } from "lucide-react";
+import { Plus, ExternalLink, Copy, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import UserProfile from "@/components/auth/UserProfile";
+import { AuthService } from "@/services/auth-service";
+import { QuizService } from "@/services/quiz-service";
+import { Loader2 } from "lucide-react";
 
 interface Quiz {
   id: string;
@@ -20,45 +24,60 @@ interface Quiz {
 
 const AdminDashboard = () => {
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check if user is authenticated
-    const token = localStorage.getItem("quizflow_token");
-    if (!token) {
-      navigate("/admin/login");
-      return;
-    }
-
-    // Load quizzes from localStorage
-    const loadQuizzes = () => {
+    // Check if user is authenticated and load quizzes
+    const init = async () => {
       try {
-        const storedQuizzes = JSON.parse(localStorage.getItem("quizzes") || "[]");
-        const formattedQuizzes = storedQuizzes.map((quiz: any) => ({
-          ...quiz,
-          createdAt: new Date(quiz.createdAt),
-          questionsCount: quiz.questions?.length || 0,
-          completionButtonText: quiz.completionConfig?.buttonText || "Continue",
-          completionButtonURL: quiz.completionConfig?.buttonURL || ""
-        }));
-        setQuizzes(formattedQuizzes);
+        setLoading(true);
+        const user = await AuthService.getCurrentUser();
+        
+        if (!user) {
+          navigate("/admin/login");
+          return;
+        }
+        
+        setCurrentUser(user);
+        await loadQuizzes(user.id);
       } catch (error) {
-        console.error("Error loading quizzes:", error);
-        setQuizzes([]);
+        console.error("Error initializing dashboard:", error);
+        toast({
+          title: "Error loading dashboard",
+          description: "Please try again or contact support",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
       }
     };
 
-    loadQuizzes();
-  }, [navigate]);
+    init();
+  }, [navigate, toast]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("quizflow_token");
-    toast({
-      title: "Logged out successfully",
-      description: "You have been logged out of QuizFlow.",
-    });
-    navigate("/");
+  // Load quizzes from Supabase
+  const loadQuizzes = async (userId: string) => {
+    try {
+      const quizzesData = await QuizService.getQuizzesByUser(userId);
+      
+      // Format the quizzes for display
+      const formattedQuizzes = quizzesData.map((quiz: any) => ({
+        ...quiz,
+        id: quiz.id,
+        title: quiz.title,
+        createdAt: new Date(quiz.created_at),
+        isActive: quiz.is_active,
+        shareUrl: quiz.share_url
+      }));
+      
+      setQuizzes(formattedQuizzes);
+    } catch (error) {
+      console.error("Error loading quizzes:", error);
+      setQuizzes([]);
+    }
   };
 
   const copyQuizLink = (quizId: string) => {
@@ -74,6 +93,18 @@ const AdminDashboard = () => {
     return `${window.location.origin}/quiz/${quizId}`;
   };
 
+  // Show loading state while checking authentication and loading quizzes
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+          <p>Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -84,10 +115,9 @@ const AdminDashboard = () => {
             <span className="text-xl font-bold text-gray-900">QuizFlow</span>
             <Badge variant="secondary" className="ml-2">Admin</Badge>
           </div>
-          <Button onClick={handleLogout} variant="outline" size="sm">
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button>
+          <div className="w-64">
+            <UserProfile />
+          </div>
         </div>
       </header>
 
@@ -181,30 +211,56 @@ const AdminDashboard = () => {
                   <CardContent>
                     <div className="space-y-3">
                       <div className="text-sm">
-                        <span className="font-medium">Redirect:</span> {quiz.completionButtonText} → {quiz.completionButtonURL || 'Not configured'}
+                        <span className="font-medium">Button:</span> {quiz.completionButtonText || 'Not configured'}
+                      </div>
+
+                      {/* Quiz URL Section */}
+                      <div className="mt-3 p-3 bg-gray-50 rounded-md border">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-sm font-medium">Quiz URL</span>
+                          <div className="flex space-x-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2"
+                              onClick={() => copyQuizLink(quiz.id)}
+                            >
+                              <Copy className="h-3 w-3 mr-1" />
+                              Copy
+                            </Button>
+                            <Link to={`/quiz/${quiz.id}`} target="_blank">
+                              <Button size="sm" variant="ghost" className="h-7 px-2">
+                                <ExternalLink className="h-3 w-3 mr-1" />
+                                Open
+                              </Button>
+                            </Link>
+                          </div>
+                        </div>
+                        <div className="bg-white p-2 rounded border flex items-center justify-between">
+                          <code className="text-xs break-all">{getQuizUrl(quiz.id)}</code>
+                        </div>
                       </div>
                       
-                      <div className="flex items-center justify-between pt-2 border-t">
-                        <div className="text-sm text-gray-600">
-                          Quiz Link: <code className="bg-gray-100 px-2 py-1 rounded text-xs">{getQuizUrl(quiz.id).substring(0, 40)}...</code>
-                        </div>
-                        <div className="flex space-x-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => copyQuizLink(quiz.id)}
-                          >
-                            <Copy className="h-4 w-4 mr-1" />
-                            Copy Link
-                          </Button>
-                          <Link to={`/quiz/${quiz.id}`} target="_blank">
-                            <Button size="sm" variant="outline">
-                              <ExternalLink className="h-4 w-4 mr-1" />
-                              Preview
+                      {/* Redirect URL Section */}
+                      {quiz.completionButtonURL && (
+                        <div className="mt-2 p-3 bg-gray-50 rounded-md border">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-sm font-medium">Redirect URL</span>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2"
+                              onClick={() => navigator.clipboard.writeText(quiz.completionButtonURL)}
+                            >
+                              <Copy className="h-3 w-3 mr-1" />
+                              Copy
                             </Button>
-                          </Link>
+                          </div>
+                          <div className="bg-white p-2 rounded border">
+                            <code className="text-xs break-all">{quiz.completionButtonURL}</code>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

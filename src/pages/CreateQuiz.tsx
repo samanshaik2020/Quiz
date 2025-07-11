@@ -30,6 +30,7 @@ const CreateQuiz = () => {
   const [currentQuestion, setCurrentQuestion] = useState("");
   const [currentOptions, setCurrentOptions] = useState(["", ""]);
   const [completionConfig, setCompletionConfig] = useState<CompletionPageConfig | null>(null);
+  const [tempQuizId, setTempQuizId] = useState<string>(`quiz_${Date.now()}`);
   
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -88,9 +89,9 @@ const CreateQuiz = () => {
       return;
     }
 
-    const quizId = `quiz_${Date.now()}`;
+    // Use the temporary quiz ID that was already generated
     const newQuiz: Quiz = {
-      id: quizId,
+      id: tempQuizId,
       title: quizTitle,
       questions,
       completionConfig,
@@ -107,7 +108,7 @@ const CreateQuiz = () => {
 
     toast({
       title: "Quiz created successfully!",
-      description: `Your quiz has been created. Share this URL: ${window.location.origin}/quiz/${quizId}`,
+      description: `Your quiz has been created. Share this URL: ${window.location.origin}/quiz/${tempQuizId}`,
     });
     
     navigate("/admin/dashboard");
@@ -319,6 +320,7 @@ const CreateQuiz = () => {
             <CompletionPageBuilder
               onSave={handleCompletionConfigSave}
               initialConfig={completionConfig}
+              quizId={tempQuizId}
             />
             
             {completionConfig && (

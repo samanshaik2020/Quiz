@@ -284,30 +284,12 @@ const CompletionPageBuilder = ({ onSave, initialConfig, quizId, useSupabase = fa
   };
 
   const generateURL = () => {
-    // Generate a URL that will actually work with the quiz system
-    const baseUrl = window.location.origin;
-    
-    // If no quizId is provided, generate a temporary one for preview purposes
-    // Make sure to format the ID properly with quiz_ prefix if it doesn't already have it
-    let urlQuizId;
-    if (quizId) {
-      // Use existing ID but ensure it has the quiz_ prefix
-      urlQuizId = quizId.startsWith('quiz_') ? quizId : `quiz_${quizId}`;
-    } else {
-      // Generate a new ID with the quiz_ prefix
-      urlQuizId = `quiz_${Date.now()}`;
-    }
-    
-    const url = `${baseUrl}/quiz/${urlQuizId}`;
-    
+    const url = generateUniqueUrl();
     setGeneratedURL(url);
     setConfig(prev => ({ ...prev, buttonURL: url }));
-    
     toast({
       title: "URL Generated",
-      description: quizId 
-        ? "A unique URL has been generated for your quiz" 
-        : "A preview URL has been generated. Note: This URL will only work after saving the quiz.",
+      description: "A unique URL has been generated for your button",
     });
   };
 
@@ -349,7 +331,7 @@ const CompletionPageBuilder = ({ onSave, initialConfig, quizId, useSupabase = fa
           footer_text: config.footer?.text || null,
         };
         
-        await QuizService.saveCompletionPage(quizId, completionPageData);
+        await QuizService.saveCompletionPage(completionPageData);
         
         toast({
           title: "Saved to Supabase",
@@ -374,16 +356,16 @@ const CompletionPageBuilder = ({ onSave, initialConfig, quizId, useSupabase = fa
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[calc(100vh-120px)]">
-      <Card className="h-full overflow-auto">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Completion Page Builder</CardTitle>
-          <CardDescription className="text-sm">
+    <div className="space-y-8">
+      <Card>
+        <CardHeader>
+          <CardTitle>Completion Page Builder</CardTitle>
+          <CardDescription>
             Customize the page that appears after a user completes the quiz
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Left Column */}
             <div className="space-y-6">
               {/* Header Section */}
@@ -470,23 +452,37 @@ const CompletionPageBuilder = ({ onSave, initialConfig, quizId, useSupabase = fa
                       className="mt-2"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="buttonURL">Button Redirect URL</Label>
-                    <div className="mt-2">
-                      <Input
-                        id="buttonURL"
-                        value={config.buttonURL}
-                        onChange={(e) => setConfig(prev => ({ ...prev, buttonURL: e.target.value }))}
-                        placeholder="Enter URL or generate one"
-                        className="w-full"
-                      />
-                    </div>
-
-                  </div>
                 </div>
               </div>
 
-              {/* Primary Button URL section removed */}
+              {/* Primary Button URL - New Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Primary Button Redirect URL</CardTitle>
+                  <CardDescription>Set the destination URL where users will be redirected after completing the quiz</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      value={config.buttonURL}
+                      onChange={(e) => setConfig(prev => ({ ...prev, buttonURL: e.target.value }))}
+                      placeholder="Enter URL or generate one"
+                      className="flex-1"
+                    />
+                    <Button onClick={generateURL} variant="outline">
+                      Generate URL
+                    </Button>
+                  </div>
+                  {generatedURL && (
+                    <div className="mt-2 p-2 bg-muted rounded-md flex items-center justify-between">
+                      <p className="text-sm break-all">{generatedURL}</p>
+                      <Button onClick={copyURL} variant="ghost" size="sm" title="Copy URL">
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
 
             {/* Right Column */}
@@ -645,9 +641,9 @@ const CompletionPageBuilder = ({ onSave, initialConfig, quizId, useSupabase = fa
       </Card>
 
       {/* Preview */}
-      <Card className="h-full sticky top-0">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center text-lg">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
             <Eye className="h-4 w-4 mr-2" />
             Preview
           </CardTitle>
@@ -745,37 +741,9 @@ const CompletionPageBuilder = ({ onSave, initialConfig, quizId, useSupabase = fa
         </CardContent>
       </Card>
 
-      {/* Generated URL Display Section */}
-      {generatedURL && (
-        <Card className="col-span-1 md:col-span-2 mb-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center">
-              <Eye className="h-4 w-4 mr-2" />
-              Generated Quiz URL
-            </CardTitle>
-            <CardDescription className="text-sm">
-              Share this URL to allow users to access your quiz
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="p-3 bg-muted rounded-md flex items-center justify-between">
-              <p className="text-sm font-medium break-all">{generatedURL}</p>
-              <Button onClick={copyURL} variant="outline" size="sm" title="Copy URL">
-                <Copy className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-      
-      <div className="col-span-1 md:col-span-2 flex space-x-2">
-        <Button onClick={generateURL} variant="outline" className="flex-1">
-          Generate URL
-        </Button>
-        <Button onClick={handleSave} className="flex-1">
-          Save Configuration
-        </Button>
-      </div>
+      <Button onClick={handleSave} className="w-full">
+        Save Completion Page Configuration
+      </Button>
     </div>
   );
 };

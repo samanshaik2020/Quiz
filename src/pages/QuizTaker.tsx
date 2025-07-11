@@ -5,56 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ArrowRight, CheckCircle } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
-// Mock quiz data
-const mockQuizData = {
-  quiz_1: {
-    title: "Product Feedback Survey",
-    questions: [
-      {
-        questionText: "What is your biggest challenge with project management?",
-        options: ["Time tracking", "Team communication", "Resource allocation", "Deadline management"]
-      },
-      {
-        questionText: "How large is your team?",
-        options: ["1-5 people", "6-15 people", "16-50 people", "50+ people"]
-      },
-      {
-        questionText: "What's your budget range for project management tools?",
-        options: ["$0-50/month", "$50-200/month", "$200-500/month", "$500+/month"]
-      },
-      {
-        questionText: "Which features are most important to you?",
-        options: ["Gantt charts", "Time tracking", "Reporting", "Integrations"]
-      },
-      {
-        questionText: "How did you hear about us?",
-        options: ["Social media", "Google search", "Referral", "Advertisement"]
-      }
-    ],
-    completionButtonText: "Get Free Trial",
-    completionButtonURL: "https://example.com/trial"
-  },
-  quiz_2: {
-    title: "Lead Generation Quiz",
-    questions: [
-      {
-        questionText: "What type of business do you run?",
-        options: ["E-commerce", "SaaS", "Consulting", "Other"]
-      },
-      {
-        questionText: "What's your main marketing goal?",
-        options: ["Increase sales", "Build brand awareness", "Generate leads", "Retain customers"]
-      },
-      {
-        questionText: "What's your monthly marketing budget?",
-        options: ["$0-1,000", "$1,000-5,000", "$5,000-10,000", "$10,000+"]
-      }
-    ],
-    completionButtonText: "Schedule Demo",
-    completionButtonURL: "https://example.com/demo"
-  }
-};
+// Quiz data will be fetched from Supabase
 
 const QuizTaker = () => {
   const { quizId } = useParams();
@@ -66,14 +19,164 @@ const QuizTaker = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate fetching quiz data
-    setTimeout(() => {
-      const quizData = mockQuizData[quizId as keyof typeof mockQuizData];
-      if (quizData) {
-        setQuiz(quizData);
+    const fetchQuizData = async () => {
+      try {
+        console.log('Fetching quiz with ID:', quizId);
+        
+        // Check if this is a preview ID (starts with 'preview_')
+        if (quizId && quizId.startsWith('preview_')) {
+          console.log('This is a preview quiz, using sample data');
+          const sampleQuiz = {
+            title: "Preview Quiz",
+            questions: [
+              {
+                questionText: "This is a preview question. What would you like to know?",
+                options: ["More information", "How to use this", "Features", "Pricing"]
+              },
+              {
+                questionText: "Would you like to create your own quiz?",
+                options: ["Yes, definitely", "Maybe later", "I need more info", "No thanks"]
+              }
+            ],
+            completionButtonText: "Finish Preview",
+            completionButtonURL: "/"
+          };
+          setQuiz(sampleQuiz);
+          setIsLoading(false);
+          return;
+        }
+        
+        // First, try to fetch the quiz directly by ID
+    // If the ID starts with 'quiz_', we need to strip that prefix as Supabase expects a UUID
+    const databaseId = quizId?.startsWith('quiz_') ? quizId.substring(5) : quizId;
+    console.log('Querying database with ID:', databaseId);
+    
+    const { data: quizData, error } = await supabase
+      .from('quizzes')
+      .select('*, questions(*)')
+      .eq('id', databaseId)
+      .single();
+
+        if (error) {
+          console.error('Error fetching quiz by ID:', error);
+          
+          // If that fails, try fetching directly by ID again but with different formatting
+          // Sometimes the ID might be stored differently in the database
+          console.log('Trying to fetch quiz by ID directly from local storage');
+          
+          // Try to get from localStorage first (for newly created quizzes)
+          const existingQuizzes = JSON.parse(localStorage.getItem("quizzes") || "[]");
+          const localQuiz = existingQuizzes.find((q: any) => q.id === quizId);
+          
+          if (localQuiz) {
+            console.log('Found quiz in localStorage:', localQuiz);
+            setQuiz({
+              title: localQuiz.title,
+              questions: localQuiz.questions.map((q: any) => ({
+                questionText: q.questionText,
+                options: q.options
+              })),
+              completionButtonText: localQuiz.completionConfig?.buttonText || 'Finish',
+              completionButtonURL: localQuiz.completionConfig?.buttonURL || '/'
+            });
+            setIsLoading(false);
+            return;
+          }
+          
+          // If not in localStorage, try by share_url as a fallback
+          // But format it correctly for the database query
+          console.log('Trying to fetch by share_url as fallback');
+          
+          // Since we're not querying by share_url anymore, let's handle the case directly
+          
+          // If it's a sample or test quiz, use mock data
+          if (quizId === 'sample' || quizId === 'test') {
+            console.log('Using sample quiz data');
+            const mockQuiz = {
+              title: "Sample Quiz",
+              questions: [
+                {
+                  questionText: "What is your favorite color?",
+                  options: ["Red", "Blue", "Green", "Yellow"]
+                },
+                {
+                  questionText: "What is your favorite animal?",
+                  options: ["Dog", "Cat", "Bird", "Fish"]
+                }
+              ],
+              completionButtonText: "Finish",
+              completionButtonURL: "/"
+            };
+            
+            setQuiz(mockQuiz);
+            setIsLoading(false);
+            return;
+          }
+          
+          // If we get here, we couldn't find the quiz anywhere
+          console.error('Could not find quiz with ID:', quizId);
+          setIsLoading(false);
+          return;
+        }
+
+        if (quizData) {
+          processQuizData(quizData);
+        } else {
+          setIsLoading(false);
+        }
+      } catch (err) {
+        console.error('Error in quiz fetching:', err);
+        setIsLoading(false);
       }
+    };
+    
+    // Helper function to process quiz data
+    const processQuizData = (quizData: any) => {
+      try {
+        console.log('Processing quiz data:', quizData);
+        
+        // Check if questions exist and are in the expected format
+        if (!quizData.questions || !Array.isArray(quizData.questions) || quizData.questions.length === 0) {
+          console.error('Invalid or missing questions in quiz data');
+          
+          // Create a simple quiz with dummy data for testing
+          const formattedQuiz = {
+            title: quizData.title || "Quiz",
+            questions: [{
+              questionText: "This is a sample question since no questions were found",
+              options: ["Option 1", "Option 2", "Option 3", "Option 4"]
+            }],
+            completionButtonText: "Finish",
+            completionButtonURL: "/"
+          };
+          
+          setQuiz(formattedQuiz);
+        } else {
+          // Transform the data to match the expected format
+          const formattedQuiz = {
+            title: quizData.title,
+            questions: quizData.questions.map((q: any) => ({
+              questionText: q.question_text || q.questionText || "Question",
+              options: q.options || ["Option 1", "Option 2", "Option 3", "Option 4"]
+            })),
+            completionButtonText: quizData.completion_button_text || 'Continue',
+            completionButtonURL: quizData.completion_button_url || '/'
+          };
+          
+          setQuiz(formattedQuiz);
+        }
+      } catch (err) {
+        console.error('Error processing quiz data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (quizId) {
+      fetchQuizData();
+    } else {
       setIsLoading(false);
-    }, 500);
+    }
   }, [quizId]);
 
   const handleAnswerSelect = (answer: string) => {
